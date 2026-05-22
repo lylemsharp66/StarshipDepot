@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Starship Depot Network v1.2 — Synodic Window Engine</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap');
+  :root {
+    --green:#00ff88; --green-dim:#00994d; --green-dark:#003311;
+    --cyan:#00e5ff; --amber:#ffaa00; --red:#ff3333;
+    --bg:#050810; --bg2:#0a0f1e; --bg3:#0f1628;
+    --border:rgba(0,255,136,0.25); --text:#b8ffd6; --text-dim:#4d8866;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono','Courier New',monospace;
+    height:100vh;overflow:hidden;display:flex;flex-direction:column;align-items:center;user-select:none;}
+  #header{width:100%;padding:7px 20px;display:flex;align-items:center;justify-content:space-between;
+    border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;}
+  #header .title{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;color:var(--green);letter-spacing:3px;}
+  #header .version{font-size:11px;color:var(--text-dim);}
+  #ticker-bar{width:100%;background:#050d14;border-bottom:1px solid rgba(0,229,255,0.15);
+    overflow:hidden;height:22px;flex-shrink:0;position:relative;}
+  #ticker-track{display:flex;gap:60px;white-space:nowrap;position:absolute;top:3px;left:0;
+    animation:ticker-scroll 40s linear infinite;font-size:11px;color:rgba(0,229,255,0.65);letter-spacing:0.5px;}
+  #ticker-track .sep{color:rgba(0,229,255,0.25);}
+  @keyframes ticker-scroll{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+  #mission-bar{width:100%;padding:5px 20px;background:var(--bg3);border-bottom:1px solid var(--border);
+    display:flex;gap:20px;align-items:center;flex-shrink:0;font-size:12px;}
+  .mission-stat{display:flex;flex-direction:column;gap:1px;}
+  .mission-stat .label{font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+  .mission-stat .value{color:var(--green);font-weight:bold;font-size:13px;}
+  .mission-stat .value.amber{color:var(--amber);}
+  .mission-stat .value.red{color:var(--red);}
+  .mission-stat .value.cyan{color:var(--cyan);}
+  #objective-display{margin-left:auto;background:rgba(0,229,255,0.06);border:1px solid rgba(0,229,255,0.2);
+    padding:4px 12px;border-radius:3px;font-size:11px;color:var(--cyan);max-width:360px;line-height:1.4;}
+  #objective-display .obj-label{font-size:9px;color:rgba(0,229,255,0.45);letter-spacing:1px;text-transform:uppercase;}
+  #multiplier-badge{background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.3);color:var(--text-dim);
+    font-family:'Orbitron',monospace;font-size:11px;padding:3px 10px;border-radius:2px;transition:all 0.3s;flex-shrink:0;}
+  #main-layout{display:flex;flex:1;width:100%;overflow:hidden;}
+  #canvas-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:8px;}
+  #gameCanvas{border:1px solid var(--border);background:var(--bg);display:block;}
+  #window-countdown{position:absolute;top:14px;right:14px;background:rgba(5,8,16,0.85);
+    border:1px solid rgba(0,229,255,0.3);border-radius:3px;padding:8px 12px;font-size:11px;
+    color:var(--cyan);line-height:1.7;pointer-events:none;min-width:180px;display:none;}
+  #window-countdown .wc-title{font-size:9px;color:rgba(0,229,255,0.45);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;}
+  #window-countdown .wc-val{font-size:15px;font-family:'Orbitron',monospace;color:var(--green);}
+  #window-countdown .wc-val.soon{color:var(--amber);}
+  #window-countdown .wc-val.now{color:var(--green);animation:pulse-green 0.6s ease-in-out infinite alternate;}
+  @keyframes pulse-green{from{opacity:0.7;}to{opacity:1;}}
+  #window-countdown .wc-multi{font-size:10px;color:var(--amber);margin-top:3px;}
+  #window-countdown .wc-multi.max{color:var(--green);}
+  #phase-legend{position:absolute;bottom:14px;left:14px;font-size:10px;color:var(--text-dim);line-height:1.8;pointer-events:none;}
+  #sidebar{width:295px;border-left:1px solid var(--border);background:var(--bg2);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
+  .panel{border-bottom:1px solid var(--border);padding:9px 13px;flex-shrink:0;}
+  .panel-title{font-size:9px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:7px;padding-bottom:4px;border-bottom:1px dashed var(--green-dark);}
+  select{background:var(--bg3);color:var(--green);border:1px solid var(--green-dark);padding:6px 8px;
+    font-family:'Share Tech Mono',monospace;font-size:12px;width:100%;cursor:pointer;border-radius:2px;outline:none;}
+  select:hover{border-color:var(--green-dim);}
+  select:disabled{opacity:0.4;cursor:not-allowed;}
+  .cargo-item{display:flex;align-items:center;gap:8px;font-size:11px;padding:3px 0;cursor:pointer;transition:color 0.15s;}
+  .cargo-item:hover{color:#fff;}
+  .cargo-item input[type="checkbox"]{accent-color:var(--green);cursor:pointer;width:13px;height:13px;}
+  .cargo-item .cargo-mass{margin-left:auto;color:var(--text-dim);font-size:10px;}
+  .btn{background:transparent;color:var(--green);border:1px solid var(--green-dark);padding:6px 10px;
+    font-family:'Share Tech Mono',monospace;font-size:11px;width:100%;cursor:pointer;text-align:left;
+    border-radius:2px;transition:all 0.15s;margin-bottom:4px;letter-spacing:0.5px;}
+  .btn:hover:not(:disabled){background:var(--green-dark);border-color:var(--green);color:#fff;}
+  .btn:disabled{opacity:0.3;cursor:not-allowed;}
+  .btn-primary{background:var(--green);color:var(--bg);border-color:var(--green);font-weight:bold;font-size:12px;padding:10px;text-align:center;letter-spacing:1px;}
+  .btn-primary:hover:not(:disabled){background:#fff;color:var(--bg);border-color:#fff;}
+  .btn-primary.amber{background:var(--amber);border-color:var(--amber);color:#000;}
+  .btn-primary.red-btn{background:transparent;color:var(--red);border-color:var(--red);cursor:not-allowed;}
+  .btn-primary.warp{background:transparent;color:var(--cyan);border-color:var(--cyan);}
+  .btn-primary.warp:hover:not(:disabled){background:rgba(0,229,255,0.12);color:#fff;}
+  #terminal-log{flex:1;background:var(--bg);padding:9px 11px;overflow-y:auto;font-size:10px;color:var(--green-dim);line-height:1.6;min-height:0;}
+  #terminal-log .entry{margin-bottom:2px;}
+  #terminal-log .entry .day{color:var(--text-dim);}
+  #terminal-log .entry .msg{color:#5cb87a;}
+  #terminal-log .entry.warn .msg{color:var(--amber);}
+  #terminal-log .entry.good .msg{color:var(--green);}
+  #terminal-log .entry.mission .msg{color:var(--cyan);font-weight:bold;}
+  #terminal-log .entry.edu .msg{color:#88ccff;font-style:italic;}
+  #bottom-bar{width:100%;padding:7px 16px;background:var(--bg2);border-top:1px solid var(--border);
+    display:flex;align-items:center;gap:14px;flex-shrink:0;}
+  .telemetry-row{display:flex;gap:18px;font-size:11px;flex:1;}
+  .tele-item{display:flex;flex-direction:column;gap:1px;}
+  .tele-item .tl{font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+  .tele-item .tv{color:var(--green);font-size:12px;}
+  .tele-item .tv.amber{color:var(--amber);}
+  .tele-item .tv.red{color:var(--red);}
+  .burn-btn-wrap{width:210px;flex-shrink:0;}
+  #score-display{font-size:11px;text-align:right;border-left:1px solid var(--border);padding-left:14px;min-width:120px;}
+  #score-display .sc-label{font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;}
+  #score-display .sc-val{font-size:18px;font-family:'Orbitron',monospace;color:var(--cyan);}
+  .dv-bar-wrap{margin-top:5px;}
+  .dv-bar-bg{background:var(--green-dark);height:3px;border-radius:2px;width:100%;overflow:hidden;}
+  .dv-bar-fill{height:100%;background:var(--green);border-radius:2px;transition:width 0.3s;}
+  .dv-bar-fill.amber{background:var(--amber);}
+  .dv-bar-fill.red-f{background:var(--red);}
+  .phase-info{font-size:10px;color:var(--text-dim);margin-top:4px;line-height:1.5;}
+  .phase-info .good{color:var(--green);}
+  .phase-info .bad{color:var(--amber);}
+  .deployed-list{font-size:10px;color:var(--text-dim);line-height:1.7;margin-top:4px;}
+  .deployed-list .unit-item{display:flex;gap:6px;align-items:center;}
+  .deployed-list .unit-dot{width:5px;height:5px;border-radius:50%;background:var(--green);display:inline-block;flex-shrink:0;}
+  .deployed-list .unit-dot.surface{background:var(--cyan);}
+  #diff-toggle{display:flex;gap:0;border:1px solid var(--green-dark);border-radius:2px;overflow:hidden;flex-shrink:0;}
+  .diff-btn{background:transparent;color:var(--text-dim);border:none;padding:4px 8px;
+    font-family:'Share Tech Mono',monospace;font-size:10px;cursor:pointer;transition:all 0.15s;letter-spacing:0.5px;}
+  .diff-btn.active{background:var(--green-dark);color:var(--green);}
+  .diff-btn:hover:not(.active){background:rgba(0,255,136,0.05);color:var(--text);}
+  .score-pop{position:absolute;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;
+    pointer-events:none;z-index:50;animation:pop-up 1.2s ease-out forwards;}
+  @keyframes pop-up{0%{opacity:1;transform:translateY(0) scale(1);}70%{opacity:0.9;transform:translateY(-32px) scale(1.15);}100%{opacity:0;transform:translateY(-55px) scale(0.9);}}
+
+  /* ── TOOLTIP ── */
+  .has-tip{border-bottom:1px dashed rgba(0,229,255,0.4);cursor:help;color:inherit;}
+  #tooltip-box{position:fixed;z-index:200;background:#060d1a;border:1px solid rgba(0,229,255,0.45);
+    border-radius:4px;padding:10px 14px;max-width:280px;font-size:11px;line-height:1.6;
+    color:var(--text);pointer-events:none;display:none;box-shadow:0 4px 20px rgba(0,0,0,0.6);}
+  #tooltip-box .tt-term{font-family:'Orbitron',monospace;font-size:10px;color:var(--cyan);
+    letter-spacing:1px;margin-bottom:5px;text-transform:uppercase;}
+  #tooltip-box .tt-body{color:#b0d0c8;}
+  #tooltip-box .tt-fact{margin-top:6px;font-size:10px;color:var(--amber);border-top:1px dashed rgba(255,170,0,0.25);padding-top:5px;}
+
+  /* ── DEBRIEF CARD ── */
+  #debrief-overlay{display:none;position:fixed;inset:0;background:rgba(5,8,16,0.94);z-index:100;
+    align-items:center;justify-content:center;flex-direction:column;gap:0;}
+  #debrief-overlay.show{display:flex;}
+  #debrief-inner{background:var(--bg2);border:1px solid var(--border);border-radius:6px;
+    max-width:620px;width:92%;overflow:hidden;}
+  #debrief-header{background:var(--bg3);padding:16px 22px;border-bottom:1px solid var(--border);}
+  #debrief-header h1{font-family:'Orbitron',monospace;font-size:18px;color:var(--green);letter-spacing:3px;}
+  #debrief-header .dh-sub{font-size:11px;color:var(--text-dim);margin-top:3px;}
+  #debrief-score-row{display:flex;gap:0;border-bottom:1px solid var(--border);}
+  .debrief-stat{flex:1;padding:12px 16px;text-align:center;border-right:1px solid var(--border);}
+  .debrief-stat:last-child{border-right:none;}
+  .debrief-stat .ds-val{font-family:'Orbitron',monospace;font-size:20px;color:var(--cyan);}
+  .debrief-stat .ds-lab{font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-top:2px;}
+  #debrief-narrative{padding:16px 22px;font-size:12px;color:var(--text);line-height:1.8;
+    border-bottom:1px solid var(--border);max-height:200px;overflow-y:auto;}
+  #debrief-narrative p{margin-bottom:10px;}
+  #debrief-narrative p:last-child{margin-bottom:0;}
+  #debrief-narrative strong{color:var(--green);}
+  #debrief-narrative em{color:var(--amber);}
+  #debrief-footer{padding:14px 22px;display:flex;gap:10px;justify-content:flex-end;}
+  .debrief-btn{background:transparent;color:var(--green);border:1px solid var(--green-dark);
+    padding:8px 18px;font-family:'Share Tech Mono',monospace;font-size:11px;cursor:pointer;
+    border-radius:2px;transition:all 0.15s;letter-spacing:0.5px;}
+  .debrief-btn:hover{background:var(--green-dark);border-color:var(--green);}
+  .debrief-btn.primary{background:var(--green);color:var(--bg);border-color:var(--green);font-weight:bold;}
+  .debrief-btn.primary:hover{background:#fff;color:var(--bg);}
+</style>
+</head>
+<body>
+
+<!-- TOOLTIP -->
+<div id="tooltip-box"><div class="tt-term" id="tt-term"></div><div class="tt-body" id="tt-body"></div><div class="tt-fact" id="tt-fact"></div></div>
+
+<div id="header">
+  <div class="title">Starship Depot Network — Synodic Window Engine</div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <div id="diff-toggle">
+      <button class="diff-btn active" id="diff-junior"  onclick="setDifficulty('junior')">JUNIOR</button>
+      <button class="diff-btn active" id="diff-normal"  onclick="setDifficulty('normal')">NORMAL</button>
+      <button class="diff-btn"        id="diff-hard"    onclick="setDifficulty('hard')">HARD</button>
+    </div>
+    <div class="version">V1.2</div>
+  </div>
+</div>
+
+<div id="ticker-bar"><div id="ticker-track"></div></div>
+
+<div id="mission-bar">
+  <div class="mission-stat"><div class="label">Location</div><div class="value" id="location-display">Earth Orbit</div></div>
+  <div class="mission-stat"><div class="label">Status</div><div class="value" id="status-display">Anchored</div></div>
+  <div class="mission-stat"><div class="label"><span class="has-tip" data-tip="propellant">Propellant</span></div><div class="value" id="fuel-display">1,200,000 kg</div></div>
+  <div class="mission-stat"><div class="label"><span class="has-tip" data-tip="deltav">Avail. dV</span></div><div class="value" id="dv-display">6,432 m/s</div></div>
+  <div class="mission-stat"><div class="label">Mission Day</div><div class="value cyan" id="mission-display">0</div></div>
+  <div class="mission-stat"><div class="label">Transit</div><div class="value" id="transit-display">—</div></div>
+  <div id="multiplier-badge">MULTIPLIER: 1.0×</div>
+  <div id="objective-display"><div class="obj-label">Active Objective</div><div id="obj-text">Initializing...</div></div>
+</div>
+
+<div id="main-layout">
+  <div id="canvas-col">
+    <canvas id="gameCanvas"></canvas>
+    <div id="window-countdown">
+      <div class="wc-title"><span class="has-tip" data-tip="synodic">Launch Window</span></div>
+      <div id="wc-content"></div>
+    </div>
+    <div id="phase-legend">
+      <div><span style="display:inline-block;width:18px;height:1px;background:#00e5ff;vertical-align:middle;margin-right:5px;"></span><span class="has-tip" data-tip="hohmann">Transfer arc</span></div>
+      <div><span style="display:inline-block;width:18px;height:1px;background:rgba(255,170,0,0.7);vertical-align:middle;margin-right:5px;"></span>Ideal phase angle</div>
+      <div><span style="display:inline-block;width:8px;height:8px;border:1px solid rgba(0,229,255,0.6);border-radius:50%;vertical-align:middle;margin-right:5px;"></span>Active depot</div>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="panel">
+      <div class="panel-title">1. Destination</div>
+      <select id="dest-select" onchange="changeDestination()">
+        <option value="luna">Luna Depot</option>
+        <option value="mars">Mars Station</option>
+        <option value="jupiter">Jupiter Relay</option>
+        <option value="titan">Titan Outpost</option>
+        <option value="earth">Return to Earth</option>
+      </select>
+      <div class="phase-info" id="phase-info"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">2. Cargo Manifest</div>
+      <label class="cargo-item"><input type="checkbox" id="pkg-drone" onchange="updateManifest()"><span>Atmospheric Flyer</span><span class="cargo-mass">1.5 t</span></label>
+      <label class="cargo-item"><input type="checkbox" id="pkg-cryo"  onchange="updateManifest()"><span>Cryobot Probe</span><span class="cargo-mass">4.5 t</span></label>
+      <label class="cargo-item"><input type="checkbox" id="pkg-isru"  onchange="updateManifest()"><span><span class="has-tip" data-tip="isru">ISRU</span> Refinery</span><span class="cargo-mass">15.0 t</span></label>
+      <label class="cargo-item"><input type="checkbox" id="pkg-comm"  onchange="updateManifest()"><span>Relay Comms Sat</span><span class="cargo-mass">3.0 t</span></label>
+      <div class="dv-bar-wrap">
+        <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-dim);margin-bottom:3px;">
+          <span>dV Required vs Available</span><span id="dv-req-label">—</span>
+        </div>
+        <div class="dv-bar-bg"><div class="dv-bar-fill" id="dv-bar" style="width:100%"></div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-title">3. Depot Operations</div>
+      <button class="btn" id="refuel-btn"  onclick="refuelAtCurrentStation()" disabled>▶ Harvest / Refuel from Depot</button>
+      <button class="btn" id="deploy-btn"  onclick="deploySurfaceUnits()"     disabled>▶ Deploy Landers to Surface</button>
+      <button class="btn" id="warp-btn"    onclick="warpToWindow()"           disabled>⊛ <span class="has-tip" data-tip="warp">Warp</span> to Next Launch Window</button>
+      <div class="deployed-list" id="deployed-list"></div>
+    </div>
+    <div id="terminal-log"></div>
+  </div>
+</div>
+
+<div id="bottom-bar">
+  <div class="telemetry-row">
+    <div class="tele-item"><div class="tl">Credits</div><div class="tv cyan" id="credits-display">0</div></div>
+    <div class="tele-item"><div class="tl">Missions</div><div class="tv" id="missions-done">0 / 5</div></div>
+    <div class="tele-item"><div class="tl">Optimal Burns</div><div class="tv" id="optimal-burns">0 / 0</div></div>
+    <div class="tele-item"><div class="tl">Depots Active</div><div class="tv" id="depots-active">1 / 4</div></div>
+    <div class="tele-item"><div class="tl">Refuel Cost</div><div class="tv amber" id="refuel-cost-display">FREE</div></div>
+  </div>
+  <div class="burn-btn-wrap">
+    <button id="burn-btn" class="btn btn-primary" onclick="handleFlightControl()">ENGAGE INJECTION BURN</button>
+  </div>
+  <div id="score-display"><div class="sc-label">Mission Score</div><div class="sc-val" id="score-val">0</div></div>
+</div>
+
+<!-- DEBRIEF CARD -->
+<div id="debrief-overlay">
+  <div id="debrief-inner">
+    <div id="debrief-header">
+      <h1>MISSION DEBRIEF</h1>
+      <div class="dh-sub" id="debrief-sub">Full network established</div>
+    </div>
+    <div id="debrief-score-row">
+      <div class="debrief-stat"><div class="ds-val" id="db-score">0</div><div class="ds-lab">Final Score</div></div>
+      <div class="debrief-stat"><div class="ds-val" id="db-days">0</div><div class="ds-lab">Mission Days</div></div>
+      <div class="debrief-stat"><div class="ds-val" id="db-eff">0%</div><div class="ds-lab">Optimal Burns</div></div>
+      <div class="debrief-stat"><div class="ds-val" id="db-creds">0</div><div class="ds-lab">Credits Earned</div></div>
+    </div>
+    <div id="debrief-narrative"></div>
+    <div id="debrief-footer">
+      <button class="debrief-btn primary" onclick="restartGame()">NEW MISSION</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Canvas ──────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+function resizeCanvas() {
+  const col = document.getElementById('canvas-col');
+  canvas.width  = Math.floor(col.clientWidth - 16);
+  canvas.height = Math.floor(col.clientHeight - 16);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ── Audio ──────────────────────────────────────────────
+const AudioCtx = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+function initAudio() { if (!audioCtx) audioCtx = new AudioCtx(); }
+function playTone(freq,dur,type='sine',vol=0.12) {
+  if (!audioCtx) return;
+  const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+  o.connect(g); g.connect(audioCtx.destination);
+  o.type=type; o.frequency.setValueAtTime(freq,audioCtx.currentTime);
+  g.gain.setValueAtTime(vol,audioCtx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+dur);
+  o.start(); o.stop(audioCtx.currentTime+dur);
+}
+function playBurn()    { playTone(220,0.3,'sawtooth',0.1); setTimeout(()=>playTone(180,0.4,'sawtooth',0.07),150); }
+function playDock()    { [440,660,880].forEach((f,i)=>setTimeout(()=>playTone(f,0.18,'sine',0.1),i*100)); }
+function playAlert()   { [330,330].forEach((f,i)=>setTimeout(()=>playTone(f,0.1,'square',0.1),i*160)); }
+function playWarp()    { playTone(120,0.5,'triangle',0.1); setTimeout(()=>playTone(200,0.3,'triangle',0.07),300); }
+function playMission() { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,0.25,'sine',0.1),i*120)); }
+function playMulti()   { playTone(660,0.12,'sine',0.1); setTimeout(()=>playTone(880,0.15,'sine',0.08),100); }
+document.addEventListener('click',()=>initAudio(),{once:true});
+document.addEventListener('keydown',()=>initAudio(),{once:true});
+
+// ── Tooltip definitions ────────────────────────────────
+const TIPS = {
+  deltav: {
+    term: "Delta-V  (Δv)",
+    body: "The total change in velocity a spacecraft can produce. Think of it as your fuel budget — every maneuver spends some. Calculated using the Tsiolkovsky Rocket Equation: Δv = Isp × g₀ × ln(m₀/m₁).",
+    fact: "Real fact: A Mars Hohmann transfer costs about 3,600 m/s from low Earth orbit — roughly the same as going from 0 to 11,000 mph."
+  },
+  propellant: {
+    term: "Propellant",
+    body: "The reaction mass your engines expel to produce thrust. More propellant = more Δv, but also more mass to loft. The ratio between full and empty mass determines your range.",
+    fact: "Real fact: SpaceX's Starship carries ~1,200 tonnes of liquid methane and liquid oxygen propellant — mostly oxygen."
+  },
+  hohmann: {
+    term: "Hohmann Transfer",
+    body: "The most fuel-efficient path between two circular orbits. You burn once to enter an ellipse, coast to the far side, then burn again to circularize. Named for Walter Hohmann who calculated it in 1925.",
+    fact: "Real fact: A Hohmann transfer to Mars takes about 259 days. NASA's Perseverance rover took 203 days using a faster but costlier trajectory."
+  },
+  synodic: {
+    term: "Launch Window / Synodic Period",
+    body: "The time between opportunities to launch on an efficient trajectory. Planets move; you must wait until the geometry is right. Miss the window and you burn extra fuel to catch up.",
+    fact: "Real fact: Earth-Mars windows open every ~26 months (the synodic period). NASA plans all Mars missions around these windows."
+  },
+  isru: {
+    term: "ISRU — In-Situ Resource Utilization",
+    body: "Using local resources (ice, regolith, atmosphere) to make propellant on-site instead of hauling it from Earth. The key to sustainable deep-space exploration — no ISRU means no return trip.",
+    fact: "Real fact: NASA's MOXIE experiment on Perseverance successfully made oxygen from the Martian atmosphere in 2021."
+  },
+  warp: {
+    term: "Time Warp",
+    body: "Fast-forwarding the simulation to the next optimal Hohmann window without flying anywhere. In reality, mission planners do this with calendars and porkchop plots months before launch day.",
+    fact: "Real fact: JPL's 'porkchop plots' chart Δv cost vs. departure date to identify optimal launch windows — the same math powering this game."
+  },
+  isp: {
+    term: "Specific Impulse (Isp)",
+    body: "A measure of engine efficiency — how much thrust you get per unit of propellant per second. Higher Isp = more Δv from the same propellant load. The Isp here (380s) matches a methane/oxygen engine like Raptor.",
+    fact: "Real fact: Chemical rockets top out around 450s Isp. Nuclear thermal engines could reach 900s, cutting deep-space transit times roughly in half."
+  }
+};
+
+// Tooltip wiring
+document.addEventListener('mousemove', e => {
+  const tip = document.getElementById('tooltip-box');
+  const el  = e.target.closest('.has-tip');
+  if (!el) { tip.style.display='none'; return; }
+  const key = el.dataset.tip;
+  const def = TIPS[key];
+  if (!def) { tip.style.display='none'; return; }
+  document.getElementById('tt-term').textContent = def.term;
+  document.getElementById('tt-body').textContent = def.body;
+  const factEl = document.getElementById('tt-fact');
+  factEl.textContent = def.fact || '';
+  factEl.style.display = def.fact ? '' : 'none';
+  tip.style.display = 'block';
+  const x = Math.min(e.clientX+14, window.innerWidth-295);
+  const y = Math.min(e.clientY+14, window.innerHeight-180);
+  tip.style.left = x+'px'; tip.style.top = y+'px';
+});
+document.addEventListener('mouseleave', () => { document.getElementById('tooltip-box').style.display='none'; });
+
+// ── Missions ───────────────────────────────────────────
+const MISSIONS = [
+  { id:1, title:"Establish Lunar Relay",    hint:"Load a Relay Comms Sat → fly to Luna → deploy.",
+    check:s=>s.deployedUnits.some(u=>u.type==='CommSat' &&u.pName==='Luna'   &&u.state==='surface'), reward:5000,
+    debrief: (G) => {
+      const days = G.ship.totalMissionDays;
+      return `You completed your first orbital transfer, flying from Earth to Luna — Earth's only natural satellite, ${Math.round(384400/1000)} thousand km away.\n\nThis short hop required a <strong>Hohmann transfer</strong>, the same maneuver Apollo astronauts used in 1969. Your Relay Comms Sat is now relaying signals across the cislunar network.`;
+    }
+  },
+  { id:2, title:"Mars ISRU Infrastructure", hint:"Carry an ISRU Refinery to Mars. Watch the launch window!",
+    check:s=>s.deployedUnits.some(u=>u.type==='Refinery'&&u.pName==='Mars'   &&u.state==='surface'), reward:12000,
+    debrief: (G) => {
+      const burns = G.optimalBurns; const total = G.totalBurns;
+      return `You executed an interplanetary transfer to Mars, the first step in building a self-sustaining depot network.\n\nMars requires waiting for an <strong>Earth-Mars launch window</strong> — these open every ~26 months because Earth and Mars orbit the Sun at different speeds. Rushing the burn costs extra <strong>delta-v</strong>.\n\nYour ISRU Refinery on Mars will eventually extract water ice and produce propellant locally — eliminating the need to haul every drop of fuel from Earth. <em>This is how humanity becomes multi-planetary.</em>`;
+    }
+  },
+  { id:3, title:"Jovian Science Package",   hint:"Deploy a Cryobot at Jupiter — big window penalty if rushed.",
+    check:s=>s.deployedUnits.some(u=>u.type==='Cryobot' &&u.pName==='Jupiter'&&u.state==='surface'), reward:18000,
+    debrief: (G) => {
+      return `Jupiter is 5.2 AU from the Sun — over 750 million km away. Getting there required a Hohmann transfer arc stretching halfway around the solar system.\n\nYour <strong>Cryobot Probe</strong> is designed for environments like Europa, Jupiter's moon with a liquid water ocean beneath its ice shell. NASA's Europa Clipper mission, launched 2024, is heading there now.\n\n<em>The Hohmann transfer you just flew was first mathematically described by German engineer Walter Hohmann in 1925 — 38 years before humans reached orbit.</em>`;
+    }
+  },
+  { id:4, title:"Titan Outpost",            hint:"Titan needs a Refinery AND an Atmospheric Flyer.",
+    check:s=>s.deployedUnits.some(u=>u.type==='Refinery'&&u.pName==='Titan'  &&u.state==='surface')
+           &&s.deployedUnits.some(u=>u.type==='Drone'   &&u.pName==='Titan'  &&u.state==='surface'), reward:30000,
+    debrief: (G) => {
+      return `Titan, Saturn's largest moon, is the most distant outpost in your network — nearly 1.4 billion km from the Sun.\n\nTitan has a thick nitrogen atmosphere and lakes of liquid methane. Your <strong>Atmospheric Flyer</strong> can navigate those skies — similar to NASA's Dragonfly rotorcraft mission launching in 2028.\n\nYour <strong>ISRU Refinery</strong> can synthesize propellant from Titan's hydrocarbon surface — making it the ultimate deep-space refueling stop. <em>Without ISRU, no spacecraft could ever return from Titan.</em>`;
+    }
+  },
+  { id:5, title:"Full Network Active",      hint:"Active assets at Luna, Mars, Jupiter AND Titan.",
+    check:s=>['Luna','Mars','Jupiter','Titan'].every(p=>s.deployedUnits.some(u=>u.pName===p&&u.state==='surface')), reward:50000,
+    debrief: (G) => {
+      const eff = G.totalBurns>0 ? Math.round(G.optimalBurns/G.totalBurns*100) : 0;
+      const days = Math.floor(G.ship.totalMissionDays);
+      return `<strong>The Starship Depot Network is fully operational.</strong> You have established infrastructure at Luna, Mars, Jupiter, and Titan — spanning the entire inner and outer solar system.\n\nYou flew ${G.totalBurns} interplanetary burns over ${days.toLocaleString()} simulated days. ${eff}% of your burns used optimal <strong>Hohmann windows</strong>, minimizing propellant expenditure.\n\nEvery concept in this simulation reflects real orbital mechanics: the <strong>Tsiolkovsky Rocket Equation</strong>, <strong>synodic periods</strong>, <strong>ISRU logistics</strong>, and <strong>phase angle alignment</strong>. The engineers at NASA, SpaceX, and ESA do this math every day.\n\n<em>The question isn't whether humanity will reach these places — it's who will be the mission planners and engineers who get us there.</em>`;
+    }
+  }
+];
+
+// ── Difficulty ─────────────────────────────────────────
+let difficulty = 'normal';
+const REFUEL_COST_HARD = 8000;
+const DIFF_WINDOW_TOLERANCE = { junior:0.22, normal:0.10, hard:0.06 };
+const DIFF_SIM_RATE         = { junior:1.6,  normal:1.0,  hard:1.0 };
+
+function setDifficulty(d) {
+  difficulty = d;
+  ['junior','normal','hard'].forEach(x => document.getElementById('diff-'+x).classList.toggle('active', x===d));
+  document.getElementById('refuel-cost-display').textContent = d==='hard' ? REFUEL_COST_HARD.toLocaleString()+' cr' : 'FREE';
+  logEvent(`Mode: ${d.toUpperCase()}${d==='junior'?' — wider windows, slower sim':''}${d==='hard'?' — refueling costs credits':''}`, d==='hard'?'warn':'good');
+  updateUI();
+}
+
+// ── Game State ─────────────────────────────────────────
+let G = {};
+
+function initGame() {
+  G = {
+    ship:{dryMass:100000,cargoMass:0,propellant:1200000,isp:380,g0:9.80665,
+      flightState:'anchored',transferProgress:0,transitRate:0.004,
+      startR:0,endR:0,startTheta:0,travelAngle:Math.PI,
+      currentTransitDays:0,totalTransitDaysPredicted:0,totalMissionDays:0,x:0,y:0},
+    bodies:{
+      earth:  {name:"Earth",  r:0.18,speed:0.006,  theta:0,  isMoon:false,parent:null,   dv:0,   color:"#3366ff",radius:9, depotActive:true, label:"EARTH"},
+      luna:   {name:"Luna",   r:0.04,speed:0.08,   theta:0,  isMoon:true, parent:'earth',dv:3200,color:"#888888",radius:3, depotActive:false,label:"LUNA"},
+      mars:   {name:"Mars",   r:0.30,speed:0.0035, theta:1.2,isMoon:false,parent:null,   dv:4100,color:"#cc4400",radius:7, depotActive:false,label:"MARS"},
+      jupiter:{name:"Jupiter",r:0.52,speed:0.0015, theta:0.5,isMoon:false,parent:null,   dv:8200,color:"#c8a060",radius:11,depotActive:false,label:"JOVE"},
+      titan:  {name:"Titan",  r:0.63,speed:0.0008, theta:3.8,isMoon:false,parent:null,   dv:9600,color:"#cc7700",radius:7, depotActive:false,label:"TITAN"}
+    },
+    currentPosition:null,selectedTarget:null,
+    deployedUnits:[],completedMissions:[],currentMissionIdx:0,
+    credits:0,score:0,optimalBurns:0,totalBurns:0,consecutiveOptimal:0,
+    missionDebriefs:[],
+    stars:[],isWarping:false,warpTarget:0,warpFrames:0,
+    _uiTick:0,_windowWasOpen:false
+  };
+  G.currentPosition = G.bodies.earth;
+  G.selectedTarget  = G.bodies.luna;
+  for (let i=0;i<200;i++) G.stars.push({x:Math.random(),y:Math.random(),r:Math.random()*1.2+0.3,twinkle:Math.random()*Math.PI*2});
+  ['pkg-drone','pkg-cryo','pkg-isru','pkg-comm'].forEach(id=>{
+    document.getElementById(id).checked=false; document.getElementById(id).disabled=false;
+  });
+  document.getElementById('dest-select').value='luna';
+  document.getElementById('dest-select').disabled=false;
+  document.getElementById('terminal-log').innerHTML='';
+  logEvent('System online. Inertial reference calibrated.','good');
+  logEvent('Hover underlined terms for real-science explanations.','edu');
+  if (difficulty==='junior') logEvent('JUNIOR MODE: Windows are wider and sim runs slower.','good');
+  if (difficulty==='hard')   logEvent('HARD MODE: Refueling costs '+REFUEL_COST_HARD.toLocaleString()+' credits.','warn');
+  updateUI(); updateMissionDisplay(); buildTicker();
+}
+
+// ── Ticker ─────────────────────────────────────────────
+function buildTicker() {
+  const cur = G.currentPosition || G.bodies.earth;
+  const items = ['mars','jupiter','titan'].map(key=>{
+    const tgt = G.bodies[key];
+    const frames = calcWarpToWindowForBodies(cur,tgt);
+    const days   = Math.max(0,Math.round(frames*0.25));
+    const multi  = days<20?3.0:days<80?2.0:1.5;
+    return `<span>${tgt.name.toUpperCase()} window in <strong style="color:${days<50?'var(--green)':'var(--cyan)'}">${days.toLocaleString()} sim-days</strong> (${multi}× bonus)</span><span class="sep"> ◆ </span>`;
+  }).join('');
+  const track = document.getElementById('ticker-track');
+  track.innerHTML = items+items;
+}
+
+// ── Helpers ────────────────────────────────────────────
+function getCenter() { return {x:canvas.width*0.48, y:canvas.height*0.5}; }
+function getMaxR()   { return Math.min(canvas.width,canvas.height)*0.44; }
+function getBodyPixelPos(b) {
+  const c=getCenter(), mr=getMaxR();
+  if (!b.isMoon) return {x:c.x+b.r*mr*Math.cos(b.theta), y:c.y+b.r*mr*Math.sin(b.theta)};
+  const p=G.bodies[b.parent];
+  return {x:c.x+p.r*mr*Math.cos(p.theta)+b.r*mr*Math.cos(b.theta), y:c.y+p.r*mr*Math.sin(p.theta)+b.r*mr*Math.sin(b.theta)};
+}
+function getAvailableDeltaV() {
+  const s=G.ship; if (s.propellant<=0) return 0;
+  return Math.round(s.isp*s.g0*Math.log((s.dryMass+s.cargoMass+s.propellant)/(s.dryMass+s.cargoMass)));
+}
+function checkLaunchWindowAlignment(cur,tgt) {
+  cur=cur||G.currentPosition; tgt=tgt||G.selectedTarget;
+  if (!cur||!tgt||cur===tgt) return {valid:false,errorDeg:0};
+  if ((cur.name==='Earth'&&tgt.name==='Luna')||(cur.name==='Luna'&&tgt.name==='Earth')) return {valid:true,errorDeg:0};
+  const r1=cur.isMoon?G.bodies[cur.parent].r:cur.r, r2=tgt.isMoon?G.bodies[tgt.parent].r:tgt.r;
+  const t1=cur.isMoon?G.bodies[cur.parent].theta:cur.theta, t2=tgt.isMoon?G.bodies[tgt.parent].theta:tgt.theta;
+  const ideal=Math.atan2(Math.sin(Math.PI*(1-Math.pow((r1+r2)/(2*r2),1.5))),Math.cos(Math.PI*(1-Math.pow((r1+r2)/(2*r2),1.5))));
+  const actual=Math.atan2(Math.sin(t2-t1),Math.cos(t2-t1));
+  const err=Math.abs(actual-ideal);
+  const tol = DIFF_WINDOW_TOLERANCE[difficulty] || 0.10;
+  return {valid:err<tol, errorDeg:Math.round(err*180/Math.PI)};
+}
+function getDynamicFlightProfile() {
+  const cur=G.currentPosition, tgt=G.selectedTarget;
+  if (!cur||!tgt) return {requiredDv:9999,transitRate:0.004,penaltyFactor:0,predictedDays:250};
+  let base=Math.abs(tgt.dv-cur.dv); if (base===0) base=tgt.dv;
+  if (tgt.name==='Earth') base=Math.max(cur.dv-1000,1500);
+  if (cur.name==='Titan'&&!G.deployedUnits.some(u=>u.type==='Refinery'&&u.state==='surface'&&u.pName==='Titan')) base+=2500;
+  base=Math.max(base,1200);
+  if ((cur.name==='Earth'&&tgt.name==='Luna')||(cur.name==='Luna'&&tgt.name==='Earth')||cur===tgt)
+    return {requiredDv:base,transitRate:0.018*DIFF_SIM_RATE[difficulty],penaltyFactor:0,predictedDays:Math.round(1/(0.018*DIFF_SIM_RATE[difficulty]))};
+  const al=checkLaunchWindowAlignment(); const pf=Math.min(al.errorDeg/45,3.5);
+  const rate=0.004*DIFF_SIM_RATE[difficulty]*(1+pf*0.7);
+  return {requiredDv:Math.round(base*(1+pf)),transitRate:rate,penaltyFactor:pf,predictedDays:Math.round(1/rate)};
+}
+function calcWarpToWindowForBodies(cur,tgt) {
+  if (!cur||!tgt||cur===tgt) return 0;
+  if ((cur.name==='Earth'&&tgt.name==='Luna')||(cur.name==='Luna'&&tgt.name==='Earth')) return 0;
+  const r1=cur.isMoon?G.bodies[cur.parent].r:cur.r, r2=tgt.isMoon?G.bodies[tgt.parent].r:tgt.r;
+  const tb=tgt.isMoon?G.bodies[tgt.parent]:tgt, cb=cur.isMoon?G.bodies[cur.parent]:cur;
+  const ideal=Math.atan2(Math.sin(Math.PI*(1-Math.pow((r1+r2)/(2*r2),1.5))),Math.cos(Math.PI*(1-Math.pow((r1+r2)/(2*r2),1.5))));
+  const actual=Math.atan2(Math.sin(tb.theta-cb.theta),Math.cos(tb.theta-cb.theta));
+  const diff=((ideal-actual)%(2*Math.PI)+2*Math.PI)%(2*Math.PI);
+  const rs=Math.abs(tb.speed-cb.speed); if (rs<0.00001) return 0;
+  return Math.round(diff/rs);
+}
+function calcWarpToWindow() { return calcWarpToWindowForBodies(G.currentPosition,G.selectedTarget); }
+function getCurrentMultiplier(pf) {
+  if (pf<0.2) { const s=G.consecutiveOptimal; return s>=3?4.0:s>=2?3.0:2.0; }
+  return 1.0;
+}
+function updateMultiplierBadge() {
+  const al=checkLaunchWindowAlignment();
+  const badge=document.getElementById('multiplier-badge');
+  if (al.valid) {
+    const m=getCurrentMultiplier(0);
+    badge.textContent=`MULTIPLIER: ${m.toFixed(1)}×`;
+    if (m>=4){badge.style.background='rgba(0,255,136,0.18)';badge.style.borderColor='var(--green)';badge.style.color='var(--green)';}
+    else     {badge.style.background='rgba(255,170,0,0.18)';badge.style.borderColor='var(--amber)'; badge.style.color='var(--amber)';}
+  } else {
+    badge.textContent='MULTIPLIER: 1.0×';
+    badge.style.background='rgba(255,170,0,0.08)';badge.style.borderColor='rgba(255,170,0,0.3)';badge.style.color='var(--text-dim)';
+  }
+}
+function updateWindowCountdown() {
+  const cur=G.currentPosition,tgt=G.selectedTarget;
+  const ov=document.getElementById('window-countdown');
+  if (!cur||!tgt||cur===tgt||(cur.name==='Earth'&&tgt.name==='Luna')||(cur.name==='Luna'&&tgt.name==='Earth')||G.ship.flightState!=='anchored') {
+    ov.style.display='none'; return;
+  }
+  ov.style.display='block';
+  const frames=calcWarpToWindow(), days=Math.max(0,Math.round(frames*0.25));
+  const al=checkLaunchWindowAlignment(), streak=G.consecutiveOptimal, multi=getCurrentMultiplier(al.valid?0:1);
+  let html='';
+  if (al.valid) {
+    html=`<div class="wc-val now">OPEN NOW</div><div class="wc-multi ${streak>=3?'max':''}">${multi.toFixed(1)}× score bonus${streak>=3?' (MAX STREAK!)':streak>=2?' (streak ×'+streak+')':''}</div>`;
+  } else {
+    const vc=days>80?'':days>20?'soon':'now';
+    html=`<div class="wc-val ${vc}">${days.toLocaleString()} sim-days</div><div style="font-size:10px;color:var(--text-dim);margin-top:2px;">`;
+    html+=streak>0?`<span style="color:var(--amber)">Streak: ${streak} optimal</span>`:'Wait or warp for bonus';
+    html+=`</div>`;
+  }
+  document.getElementById('wc-content').innerHTML=html;
+}
+
+// ── Logging ────────────────────────────────────────────
+function logEvent(text,cls='') {
+  const log=document.getElementById('terminal-log');
+  const day=Math.floor(G.ship.totalMissionDays);
+  const el=document.createElement('div');
+  el.className='entry'+(cls?' '+cls:'');
+  el.innerHTML=`<span class="day">[D${String(day).padStart(4,'0')}]</span> <span class="msg">${text}</span>`;
+  log.appendChild(el); log.scrollTop=log.scrollHeight;
+}
+function spawnScorePop(pts,multi,x,y) {
+  const col=document.getElementById('canvas-col');
+  const el=document.createElement('div'); el.className='score-pop';
+  el.style.color=pts>0?(multi>1?'var(--amber)':'var(--green)'):'var(--red)';
+  el.style.left=(x+col.offsetLeft)+'px'; el.style.top=(y+col.offsetTop-20)+'px';
+  el.textContent=`${pts>0?'+':''}${pts.toLocaleString()}${multi>1?' ×'+multi:''}`;
+  document.body.appendChild(el); setTimeout(()=>el.remove(),1300);
+}
+
+// ── Actions ────────────────────────────────────────────
+function changeDestination() {
+  if (G.ship.flightState!=='anchored') return;
+  G.selectedTarget=G.bodies[document.getElementById('dest-select').value];
+  updateUI();
+}
+function updateManifest() {
+  if (G.ship.flightState!=='anchored') return;
+  let t=0;
+  if (document.getElementById('pkg-drone').checked) t+=1500;
+  if (document.getElementById('pkg-cryo').checked)  t+=4500;
+  if (document.getElementById('pkg-isru').checked)  t+=15000;
+  if (document.getElementById('pkg-comm').checked)  t+=3000;
+  G.ship.cargoMass=t; updateUI();
+}
+function refuelAtCurrentStation() {
+  initAudio(); const cur=G.currentPosition;
+  if (G.ship.flightState!=='anchored') return;
+  if (cur.name==='Titan'&&!G.deployedUnits.some(u=>u.type==='Refinery'&&u.state==='surface'&&u.pName==='Titan')) {
+    logEvent('DENIED: Titan ISRU offline.','warn'); playAlert(); return;
+  }
+  if (difficulty==='hard') {
+    if (G.credits<REFUEL_COST_HARD) { logEvent(`DENIED: Need ${REFUEL_COST_HARD.toLocaleString()} cr.`,'warn'); playAlert(); return; }
+    G.credits-=REFUEL_COST_HARD; logEvent(`Refuel cost: ${REFUEL_COST_HARD.toLocaleString()} cr.`,'warn');
+  } else {
+    logEvent(`Propellant replenished at ${cur.name}.`,'good');
+  }
+  G.ship.propellant=1200000;
+  playDock(); updateUI();
+}
+function deploySurfaceUnits() {
+  initAudio(); if (G.ship.flightState!=='anchored') return;
+  const cur=G.currentPosition; if (cur.name==='Earth') return;
+  const map={Drone:'pkg-drone',Cryobot:'pkg-cryo',Refinery:'pkg-isru',CommSat:'pkg-comm'};
+  const items=[
+    {type:'Drone',   mass:1500, label:'Atmospheric Flyer'},
+    {type:'Cryobot', mass:4500, label:'Cryobot Probe'},
+    {type:'Refinery',mass:15000,label:'ISRU Refinery'},
+    {type:'CommSat', mass:3000, label:'Relay Comms Sat'}
+  ].filter(it=>document.getElementById(map[it.type]).checked);
+  if (!items.length) return;
+  items.forEach(it=>{
+    G.ship.cargoMass-=it.mass;
+    document.getElementById(map[it.type]).checked=false;
+    G.deployedUnits.push({type:it.type,pName:cur.name,altitude:20+Math.random()*10,state:'descent',angle:Math.random()*Math.PI*2});
+    logEvent(`Released ${it.label} to ${cur.name}.`);
+    G.credits+=500; G.score+=500;
+  });
+  if (!cur.depotActive) { cur.depotActive=true; logEvent(`Depot active at ${cur.name}!`,'good'); }
+  playDock(); checkMissions(); updateUI();
+}
+function handleFlightControl() {
+  initAudio(); const s=G.ship,cur=G.currentPosition,tgt=G.selectedTarget;
+  if (s.flightState!=='anchored'||!cur||!tgt||cur===tgt) return;
+  const profile=getDynamicFlightProfile(), availDv=getAvailableDeltaV();
+  if (availDv<profile.requiredDv) { logEvent(`ABORT: Need ${profile.requiredDv.toLocaleString()} m/s.`,'warn'); playAlert(); return; }
+  const im=s.dryMass+s.cargoMass+s.propellant, fm=im/Math.exp(profile.requiredDv/(s.isp*s.g0));
+  s.propellant-=im-fm;
+  s.flightState=((cur.name==='Earth'&&tgt.name==='Luna')||(cur.name==='Luna'&&tgt.name==='Earth'))?'local_moon_transit':'transfer_outbound';
+  s.transferProgress=0; s.currentTransitDays=0; s.totalTransitDaysPredicted=profile.predictedDays; s.transitRate=profile.transitRate;
+  s.startR=cur.isMoon?G.bodies[cur.parent].r:cur.r; s.endR=tgt.isMoon?G.bodies[tgt.parent].r:tgt.r;
+  s.startTheta=cur.isMoon?G.bodies[cur.parent].theta:cur.theta;
+  const rawSweep=(tgt.theta+tgt.speed*(1/s.transitRate))-s.startTheta;
+  s.travelAngle=Math.atan2(Math.sin(rawSweep),Math.cos(rawSweep));
+  document.getElementById('dest-select').disabled=true;
+  document.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.disabled=true);
+  ['refuel-btn','deploy-btn','warp-btn'].forEach(id=>document.getElementById(id).disabled=true);
+  document.getElementById('status-display').textContent='BURN ENGAGED';
+  G.totalBurns++;
+  const isOpt=profile.penaltyFactor<0.2;
+  if (isOpt) {
+    G.optimalBurns++; G.consecutiveOptimal++;
+    const multi=getCurrentMultiplier(0), pts=Math.round(1500*multi);
+    G.score+=pts; G.credits+=pts;
+    spawnScorePop(pts,multi,s.x,s.y);
+    if (G.consecutiveOptimal>=2) playMulti();
+    logEvent(`Optimal Hohmann window. +${pts.toLocaleString()} pts (${multi.toFixed(1)}×). ${profile.predictedDays} days.`,'good');
+  } else {
+    G.consecutiveOptimal=0;
+    logEvent(`Non-optimal burn (+${Math.round(profile.penaltyFactor*100)}% dV penalty). ${profile.predictedDays} days.`,'warn');
+  }
+  logEvent(`dV: ${profile.requiredDv.toLocaleString()} m/s  |  −${Math.round(im-fm).toLocaleString()} kg propellant`);
+  playBurn(); updateUI();
+}
+function warpToWindow() {
+  initAudio(); const frames=calcWarpToWindow();
+  if (frames<=0) { logEvent('Already at optimal window.','good'); return; }
+  G.isWarping=true; G.warpTarget=frames; G.warpFrames=0;
+  ['warp-btn','burn-btn'].forEach(id=>document.getElementById(id).disabled=true);
+  document.getElementById('dest-select').disabled=true;
+  document.getElementById('status-display').textContent='TIME WARP';
+  logEvent(`Warping ${frames.toLocaleString()} frames to window...`,'warn');
+  playWarp();
+}
+
+// ── Mission checks ─────────────────────────────────────
+function checkMissions() {
+  const idx=G.currentMissionIdx; if (idx>=MISSIONS.length) return;
+  const m=MISSIONS[idx];
+  if (m.check(G)) {
+    G.completedMissions.push(m.id); G.credits+=m.reward; G.score+=m.reward; G.currentMissionIdx++;
+    logEvent(`OBJECTIVE COMPLETE: ${m.title}  +${m.reward.toLocaleString()} cr`,'mission');
+    G.missionDebriefs.push(m);
+    playMission();
+    if (G.currentMissionIdx>=MISSIONS.length) setTimeout(showDebrief,1500);
+    else updateMissionDisplay();
+  }
+}
+function updateMissionDisplay() {
+  const idx=G.currentMissionIdx;
+  if (idx>=MISSIONS.length) { document.getElementById('obj-text').textContent='All missions complete!'; return; }
+  const m=MISSIONS[idx];
+  document.getElementById('obj-text').textContent=`[${idx+1}/${MISSIONS.length}] ${m.title}: ${m.hint}`;
+  buildTicker();
+}
+
+// ── Debrief ────────────────────────────────────────────
+function showDebrief() {
+  const eff=G.totalBurns>0?Math.round(G.optimalBurns/G.totalBurns*100):0;
+  document.getElementById('db-score').textContent=G.score.toLocaleString();
+  document.getElementById('db-days').textContent=Math.floor(G.ship.totalMissionDays).toLocaleString();
+  document.getElementById('db-eff').textContent=eff+'%';
+  document.getElementById('db-creds').textContent=G.credits.toLocaleString();
+  const effLabel = eff>=80?'Outstanding orbital efficiency.':eff>=50?'Solid mission — some windows were missed.':'Many burns were suboptimal.';
+  document.getElementById('debrief-sub').textContent=effLabel;
+
+  // Build narrative from all completed missions
+  const narrativeEl=document.getElementById('debrief-narrative');
+  const lastMission=MISSIONS[MISSIONS.length-1];
+  // Always show the final mission debrief
+  const narrativeText=lastMission.debrief(G);
+  narrativeEl.innerHTML=`<p>${narrativeText.replace(/\n\n/g,'</p><p>')}</p>`;
+
+  // Append ISP factoid if player burned non-optimally
+  if (eff<50) {
+    narrativeEl.innerHTML+=`<p><em>Tip: Hover over underlined terms like <span class="has-tip" data-tip="deltav" style="color:var(--cyan);border-bottom:1px dashed rgba(0,229,255,0.4);cursor:help;">Avail. dV</span> and <span class="has-tip" data-tip="synodic" style="color:var(--cyan);border-bottom:1px dashed rgba(0,229,255,0.4);cursor:help;">Launch Window</span> for real-science explanations.</em></p>`;
+  }
+  document.getElementById('debrief-overlay').classList.add('show');
+  playMission();
+}
+function restartGame() {
+  document.getElementById('debrief-overlay').classList.remove('show');
+  initGame();
+}
+
+// ── UI update ──────────────────────────────────────────
+function updateUI() {
+  const s=G.ship, cur=G.currentPosition, tgt=G.selectedTarget, av=getAvailableDeltaV();
+  document.getElementById('fuel-display').textContent=Math.round(s.propellant).toLocaleString()+' kg';
+  document.getElementById('dv-display').textContent=av.toLocaleString()+' m/s';
+  document.getElementById('mission-display').textContent=Math.floor(s.totalMissionDays).toLocaleString();
+  document.getElementById('credits-display').textContent=G.credits.toLocaleString();
+  document.getElementById('score-val').textContent=G.score.toLocaleString();
+  document.getElementById('missions-done').textContent=`${G.completedMissions.length} / ${MISSIONS.length}`;
+  document.getElementById('optimal-burns').textContent=`${G.optimalBurns} / ${G.totalBurns}`;
+  document.getElementById('depots-active').textContent=`${Object.values(G.bodies).filter(b=>b.depotActive).length} / 4`;
+  if (s.flightState!=='anchored') {
+    document.getElementById('transit-display').textContent=`${Math.floor(s.currentTransitDays)} / ${s.totalTransitDaysPredicted} d`;
+    document.getElementById('status-display').textContent=`IN TRANSIT (${Math.round(s.transferProgress*100)}%)`;
+    return;
+  }
+  document.getElementById('transit-display').textContent='—';
+  const profile=getDynamicFlightProfile(), al=checkLaunchWindowAlignment();
+  const hasCargo=s.cargoMass>0;
+  document.getElementById('deploy-btn').disabled=(cur&&cur.name==='Earth')||!hasCargo;
+  if (cur&&['Earth','Luna','Mars','Jupiter'].includes(cur.name)) document.getElementById('refuel-btn').disabled=false;
+  else if (cur&&cur.name==='Titan') document.getElementById('refuel-btn').disabled=!G.deployedUnits.some(u=>u.type==='Refinery'&&u.state==='surface'&&u.pName==='Titan');
+  const dvPct=Math.min(av/Math.max(profile.requiredDv,1),1);
+  const bar=document.getElementById('dv-bar');
+  bar.style.width=(dvPct*100)+'%'; bar.className='dv-bar-fill'+(dvPct<0.5?' red-f':dvPct<0.8?' amber':'');
+  document.getElementById('dv-req-label').textContent=profile.requiredDv.toLocaleString()+' m/s req.';
+  const btn=document.getElementById('burn-btn');
+  if (!tgt||cur===tgt)             { btn.disabled=true;  btn.className='btn btn-primary';        btn.textContent='ANCHORED AT TARGET'; }
+  else if (av<profile.requiredDv)  { btn.disabled=true;  btn.className='btn btn-primary red-btn';btn.textContent='INSUFFICIENT dV'; }
+  else if (al.valid)               { btn.disabled=false; btn.className='btn btn-primary';        btn.textContent='▶ WINDOW ALIGNED — EXECUTE BURN'; }
+  else                             { btn.disabled=false; btn.className='btn btn-primary amber';  btn.textContent=`FORCE BURN (+${Math.round(profile.penaltyFactor*100)}% dV)`; }
+  const canWarp=tgt&&cur!==tgt&&!((cur.name==='Earth'&&tgt.name==='Luna')||(cur.name==='Luna'&&tgt.name==='Earth'));
+  document.getElementById('warp-btn').disabled=!canWarp||G.isWarping;
+  const pi=document.getElementById('phase-info');
+  if (!tgt||cur===tgt) pi.innerHTML='';
+  else if ((cur.name==='Earth'&&tgt.name==='Luna')||(cur.name==='Luna'&&tgt.name==='Earth')) pi.innerHTML='<span class="good">■ Local transit — no window needed</span>';
+  else if (al.valid) { const m=getCurrentMultiplier(0); pi.innerHTML=`<span class="good">▲ Window open (±${al.errorDeg}°) — ${m.toFixed(1)}× bonus${G.consecutiveOptimal>1?' | streak: '+G.consecutiveOptimal:''}</span>`; }
+  else { const wf=calcWarpToWindow(); pi.innerHTML=`<span class="bad">◆ Phase error: ${al.errorDeg}° — ~${Math.round(wf*0.25).toLocaleString()} sim-days to window</span>`; }
+  const depList=document.getElementById('deployed-list');
+  depList.innerHTML=G.deployedUnits.length?G.deployedUnits.map(u=>`<div class="unit-item"><span class="unit-dot ${u.state==='surface'?'surface':''}"></span><span>${u.type} @ ${u.pName} [${u.state}]</span></div>`).join(''):'';
+  updateMultiplierBadge(); updateWindowCountdown();
+}
+
+// ── Render ─────────────────────────────────────────────
+function render() {
+  const s=G.ship, c=getCenter(), mr=getMaxR(), t=Date.now()*0.001;
+  ctx.fillStyle='#050810'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  if (G.isWarping) {
+    ctx.fillStyle='rgba(0,20,50,0.35)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    G.stars.forEach((st,i)=>{
+      if(i%3!==0)return; ctx.strokeStyle='rgba(0,200,255,0.12)'; ctx.lineWidth=0.5;
+      ctx.beginPath(); ctx.moveTo(st.x*canvas.width,st.y*canvas.height);
+      ctx.lineTo(st.x*canvas.width+(st.x-0.5)*10,st.y*canvas.height+(st.y-0.5)*10); ctx.stroke();
+    });
+  }
+  G.stars.forEach(st=>{
+    const a=0.25+0.3*Math.sin(st.twinkle+t*(0.4+st.r*0.3));
+    ctx.fillStyle=`rgba(180,220,255,${a})`; ctx.beginPath(); ctx.arc(st.x*canvas.width,st.y*canvas.height,st.r,0,Math.PI*2); ctx.fill();
+  });
+  const sg=ctx.createRadialGradient(c.x,c.y,2,c.x,c.y,18);
+  sg.addColorStop(0,'#ffffff'); sg.addColorStop(0.4,'#ffee88'); sg.addColorStop(1,'rgba(5,8,16,0)');
+  ctx.fillStyle=sg; ctx.beginPath(); ctx.arc(c.x,c.y,18,0,Math.PI*2); ctx.fill();
+  const wm=G.isWarping?20:1;
+  Object.values(G.bodies).forEach(b=>b.theta+=b.speed*wm);
+  if (G.isWarping) {
+    G.ship.totalMissionDays+=20; G.warpFrames+=20;
+    if (G.warpFrames>=G.warpTarget) {
+      G.isWarping=false; logEvent('Warp complete. Window aligned.','good');
+      document.getElementById('dest-select').disabled=false;
+      document.getElementById('status-display').textContent='Anchored';
+      buildTicker(); updateUI();
+    }
+  } else { s.totalMissionDays+=1; }
+  Object.values(G.bodies).forEach(b=>{ if(b.isMoon)return; ctx.strokeStyle='rgba(0,255,136,0.04)'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(c.x,c.y,b.r*mr,0,Math.PI*2); ctx.stroke(); });
+  const cur=G.currentPosition, tgt=G.selectedTarget;
+  if (cur&&tgt&&cur!==tgt&&s.flightState==='anchored'&&!((cur.name==='Earth'&&tgt.name==='Luna')||(cur.name==='Luna'&&tgt.name==='Earth'))) {
+    const r1=(cur.isMoon?G.bodies[cur.parent].r:cur.r)*mr, r2=(tgt.isMoon?G.bodies[tgt.parent].r:tgt.r)*mr;
+    const t1=cur.isMoon?G.bodies[cur.parent].theta:cur.theta;
+    const ip=Math.PI*(1-Math.pow((r1+r2)/(2*r2),1.5)), iti=t1+ip;
+    ctx.strokeStyle='rgba(255,170,0,0.35)'; ctx.setLineDash([4,4]); ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(c.x,c.y); ctx.lineTo(c.x+r2*Math.cos(iti),c.y+r2*Math.sin(iti)); ctx.stroke(); ctx.setLineDash([]);
+    const al=checkLaunchWindowAlignment();
+    ctx.strokeStyle=al.valid?'rgba(0,255,136,0.45)':'rgba(0,229,255,0.2)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(c.x,c.y,(r1+r2)/2,t1,t1+Math.PI,false); ctx.stroke();
+  }
+  Object.values(G.bodies).forEach(b=>{
+    if(b.isMoon)return;
+    const pos=getBodyPixelPos(b), g=ctx.createRadialGradient(pos.x,pos.y,1,pos.x,pos.y,b.radius);
+    g.addColorStop(0,'#ffffff'); g.addColorStop(0.3,b.color); g.addColorStop(1,'rgba(5,8,16,0)');
+    ctx.fillStyle=g; ctx.beginPath(); ctx.arc(pos.x,pos.y,b.radius,0,Math.PI*2); ctx.fill();
+    if(b.depotActive){ ctx.strokeStyle='rgba(0,229,255,0.55)'; ctx.lineWidth=1; ctx.beginPath(); ctx.arc(pos.x,pos.y,b.radius+4,0,Math.PI*2); ctx.stroke(); }
+    ctx.font=`${Math.max(8,Math.round(canvas.width/105))}px "Share Tech Mono",monospace`; ctx.fillStyle=b.color;
+    ctx.fillText(b.label,pos.x+b.radius+3,pos.y-b.radius-1);
+  });
+  Object.values(G.bodies).forEach(b=>{
+    if(!b.isMoon)return; const pos=getBodyPixelPos(b), pp=getBodyPixelPos(G.bodies[b.parent]);
+    ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=0.5; ctx.beginPath(); ctx.arc(pp.x,pp.y,b.r*mr,0,Math.PI*2); ctx.stroke();
+    ctx.fillStyle=b.color; ctx.beginPath(); ctx.arc(pos.x,pos.y,b.radius,0,Math.PI*2); ctx.fill();
+    ctx.font='8px "Share Tech Mono",monospace'; ctx.fillStyle='#777'; ctx.fillText(b.label,pos.x+b.radius+2,pos.y-b.radius);
+  });
+  if (s.flightState==='anchored'&&cur) { const p=getBodyPixelPos(cur); s.x=p.x; s.y=p.y; }
+  else if (s.flightState==='transfer_outbound') {
+    s.transferProgress+=s.transitRate; s.currentTransitDays++;
+    const tt=s.transferProgress, cr=(s.startR+(s.endR-s.startR)*(1-Math.cos(tt*Math.PI))/2)*mr, ct=s.startTheta+s.travelAngle*tt;
+    s.x=c.x+cr*Math.cos(ct); s.y=c.y+cr*Math.sin(ct);
+    ctx.strokeStyle='rgba(0,229,255,0.25)'; ctx.setLineDash([3,3]); ctx.lineWidth=1; ctx.beginPath();
+    for(let i=0;i<=1;i+=0.02){ const rr=(s.startR+(s.endR-s.startR)*(1-Math.cos(i*Math.PI))/2)*mr, ti=s.startTheta+s.travelAngle*i; ctx.lineTo(c.x+rr*Math.cos(ti),c.y+rr*Math.sin(ti)); }
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle='#00e5ff'; ctx.beginPath(); ctx.arc(s.x-Math.cos(ct)*6,s.y-Math.sin(ct)*6,2,0,Math.PI*2); ctx.fill();
+    const tp=getBodyPixelPos(tgt);
+    if(tt>=1.0||Math.hypot(s.x-tp.x,s.y-tp.y)<(tgt.radius+3)) landAtDestination();
+  } else if (s.flightState==='local_moon_transit') {
+    s.transferProgress+=0.018; s.currentTransitDays++;
+    const op=getBodyPixelPos(cur), tp=getBodyPixelPos(tgt);
+    s.x=op.x+(tp.x-op.x)*s.transferProgress; s.y=op.y+(tp.y-op.y)*s.transferProgress;
+    if(s.transferProgress>=1.0) landAtDestination();
+  }
+  ctx.strokeStyle='#ffffff'; ctx.fillStyle='#1a2035'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.arc(s.x,s.y,4,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle='rgba(0,255,136,0.6)'; ctx.beginPath(); ctx.arc(s.x+1,s.y-1,1.5,0,Math.PI*2); ctx.fill();
+  G.deployedUnits.forEach(unit=>{
+    const body=G.bodies[unit.pName.toLowerCase()]; if(!body)return;
+    const pos=getBodyPixelPos(body);
+    if(unit.state==='descent'){ unit.altitude-=0.07; if(unit.altitude<=0){unit.altitude=0;unit.state='surface';logEvent(`${unit.type} landed on ${unit.pName}.`,'good');checkMissions();updateUI();} }
+    const ux=pos.x+unit.altitude*Math.cos(unit.angle), uy=pos.y+unit.altitude*Math.sin(unit.angle);
+    ctx.fillStyle=unit.state==='surface'?'#00e5ff':'#ffffff'; ctx.beginPath(); ctx.arc(ux,uy,1.5,0,Math.PI*2); ctx.fill();
+  });
+
+  // Throttled UI refresh + window-open alert
+  G._uiTick=(G._uiTick||0)+1;
+  if (G._uiTick%20===0) {
+    updateUI();
+    if (s.flightState==='anchored') {
+      const al=checkLaunchWindowAlignment();
+      if (al.valid&&!G._windowWasOpen) {
+        const btn=document.getElementById('burn-btn');
+        btn.style.boxShadow='0 0 16px 4px rgba(0,255,136,0.7)';
+        setTimeout(()=>btn.style.boxShadow='',1200);
+        playMulti();
+        logEvent('⊛ LAUNCH WINDOW OPEN — burn now for max score bonus.','good');
+      }
+      G._windowWasOpen=al.valid;
+    }
+  }
+  requestAnimationFrame(render);
+}
+
+function landAtDestination() {
+  const s=G.ship, tgt=G.selectedTarget;
+  s.flightState='anchored'; G.currentPosition=tgt; s.transferProgress=0;
+  document.getElementById('location-display').textContent=tgt.name+' System';
+  document.getElementById('status-display').textContent='Anchored';
+  document.getElementById('dest-select').disabled=false;
+  document.querySelectorAll('input[type=checkbox]').forEach(cb=>cb.disabled=false);
+  logEvent(`Rendezvous at ${tgt.name}. ${Math.floor(s.currentTransitDays)} days.`,'good');
+  G.credits+=200; G.score+=200; spawnScorePop(200,1,s.x,s.y);
+  playDock(); checkMissions(); buildTicker(); updateUI();
+}
+
+// Start with Normal pre-selected
+document.getElementById('diff-normal').classList.add('active');
+document.getElementById('diff-junior').classList.remove('active');
+difficulty='normal';
+initGame();
+render();
+</script>
+</body>
+</html>
