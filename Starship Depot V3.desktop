@@ -1,0 +1,9 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Starship Depot
+Comment=Play this offline educational orbital mechanics game
+Exec=xdg-open /opt/Starship_Depot_V3/starship_depot_v3.html
+Icon=/opt/Starship_Depot_V3/icon.png
+Terminal=false
+Categories=Education;Game;
